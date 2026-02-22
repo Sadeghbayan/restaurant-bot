@@ -2,173 +2,187 @@ import { Markup } from "telegraf";
 import { searchPlaces } from "../services/places.service.js";
 import { formatPlacesMessage } from "./format.js";
 import { getCtx, setCtx } from "./session.js";
+import { homeKeyboard, cuisineKeyboard, ratingKeyboard, reviewsKeyboard, resultsKeyboard, dishKeyboard } from "./ui.js";
 
 export function registerBotHandlers(bot) {
-  bot.start((ctx) =>
-    ctx.reply(
-      "سلام! 👋\n" +
-        "یک عبارت بفرست مثل:\n" +
-        "• pizza\n" +
-        "• best burger\n" +
-        "• italian in berlin\n\n" +
-        "دستورها:\n" +
-        "/cuisine  انتخاب نوع غذا\n" +
-        "/nearme   جستجو نزدیک من\n" +
-        "/minreviews 1000\n" +
-        "/minrating 4.5\n" +
-        "/filters  نمایش تنظیمات\n" +
-        "/top5 <query>\n" +
-        "/top10 <query>"
-    )
-  );
-
-  bot.command("help", (ctx) =>
-    ctx.reply(
-      "مثال‌ها:\n" +
-        "/cuisine\n" +
-        "/minreviews 1000\n" +
-        "/minrating 4.5\n" +
-        "/nearme\n\n" +
-        "و بعدش فقط بنویس:\n" +
-        "pizza\n" +
-        "best pizza\n" +
-        "burger"
-    )
-  );
-
-  // ---------- cuisine selection ----------
-  bot.command("cuisine", async (ctx) => {
-    const buttons = [
-      ["🍕 Pizza", "cuisine:pizza"],
-      ["🍝 Italian", "cuisine:italian restaurant"],
-      ["🍔 Burger", "cuisine:burger"],
-      ["🥙 Turkish", "cuisine:turkish restaurant"],
-      ["🥗 Greek", "cuisine:greek restaurant"],
-      ["🥘 Spanish", "cuisine:spanish restaurant"],
-      ["⭐️ Any", "cuisine:"],
-    ];
-
-    await ctx.reply(
-      "Cuisine را انتخاب کن:",
-      Markup.inlineKeyboard(
-        buttons.map(([label, data]) => Markup.button.callback(label, data)),
-        { columns: 2 }
-      )
-    );
+  // --- START: show home menu ---
+  bot.start(async (ctx) => {
+    setCtx(ctx.from.id, { step: "HOME" });
+    await ctx.reply("👋 Welcome! Choose an option:", homeKeyboard());
   });
 
-  bot.action(/^cuisine:(.*)$/i, async (ctx) => {
-    const cuisine = ctx.match[1] || null;
-    setCtx(ctx.from.id, { cuisine: cuisine || null });
+  // --- commands remain for power users, but UI is button-first ---
+  bot.command("menu", async (ctx) => {
+    setCtx(ctx.from.id, { step: "HOME" });
+    await ctx.reply("🏠 Menu:", homeKeyboard());
+  });
+
+  // --- NAVIGATION ---
+  bot.action("nav:home", async (ctx) => {
+    setCtx(ctx.from.id, { step: "HOME" });
     await ctx.answerCbQuery();
-    await ctx.reply(`Cuisine set to: ${cuisine || "Any"}`);
+    await ctx.editMessageText("🏠 Menu:", homeKeyboard());
   });
 
-  // ---------- filters ----------
-  bot.command("minreviews", async (ctx) => {
-    const n = Number(ctx.message.text.replace("/minreviews", "").trim());
-    if (!Number.isFinite(n) || n < 0) return ctx.reply("Example: /minreviews 1000");
-    setCtx(ctx.from.id, { minReviews: Math.floor(n) });
-    return ctx.reply(`Min reviews set to: ${Math.floor(n)}`);
+  bot.action("nav:cuisine", async (ctx) => {
+    setCtx(ctx.from.id, { step: "PICK_CUISINE" });
+    await ctx.answerCbQuery();
+    await ctx.editMessageText("🍽 Choose cuisine:", cuisineKeyboard());
+  });
+bot.action("nav:dish", async (ctx) => {
+  setCtx(ctx.from.id, { step: "PICK_DISH" });
+  await ctx.answerCbQuery();
+  await ctx.editMessageText("🍕 Choose dish:", dishKeyboard());
+});
+
+bot.action("nav:rating", async (ctx) => {
+    setCtx(ctx.from.id, { step: "PICK_RATING" });
+    await ctx.answerCbQuery();
+    await ctx.editMessageText("⭐ Minimum rating:", ratingKeyboard());
+});
+
+bot.action("nav:reviews", async (ctx) => {
+    setCtx(ctx.from.id, { step: "PICK_REVIEWS" });
+    await ctx.answerCbQuery();
+    await ctx.editMessageText("📝 Minimum reviews:", reviewsKeyboard());
   });
 
-  bot.command("minrating", async (ctx) => {
-    const r = Number(ctx.message.text.replace("/minrating", "").trim());
-    if (!Number.isFinite(r) || r < 0 || r > 5) return ctx.reply("Example: /minrating 4.5");
-    setCtx(ctx.from.id, { minRating: r });
-    return ctx.reply(`Min rating set to: ${r}`);
+  bot.action("nav:results", async (ctx) => {
+    await ctx.answerCbQuery();
+    return showResults(ctx, { refresh: true });
   });
 
-  bot.command("filters", async (ctx) => {
-    const s = getCtx(ctx.from.id);
-    return ctx.reply(
-      `Current filters:\n` +
-        `• Cuisine: ${s.cuisine || "Any"}\n` +
-        `• Min rating: ${s.minRating || 0}\n` +
-        `• Min reviews: ${s.minReviews || 0}\n` +
-        `• Location: ${s.location ? "Near me" : s.city}`
-    );
+  // --- HOME actions (location / city) ---
+  bot.action(/^home:city:(.*)$/i, async (ctx) => {
+    const city = ctx.match[1];
+    setCtx(ctx.from.id, { city, location: null });
+    await ctx.answerCbQuery(`City set: ${city}`);
+    await ctx.editMessageText(`🏙 City set to ${city}\n\nWhat next?`, homeKeyboard());
   });
 
-  // ---------- location ----------
-  bot.command("nearme", async (ctx) => {
+  bot.action("home:nearme", async (ctx) => {
+    // ask for location using reply keyboard
+    setCtx(ctx.from.id, { step: "HOME" });
+    await ctx.answerCbQuery();
     await ctx.reply(
-      "لوکیشن رو بفرست 📍",
-      Markup.keyboard([[Markup.button.locationRequest("📍 Share location")]])
-        .oneTime()
-        .resize()
+      "📍 Please share your location:",
+      Markup.keyboard([[Markup.button.locationRequest("📍 Share location")]]).oneTime().resize()
     );
   });
 
   bot.on("location", async (ctx) => {
     const { latitude, longitude } = ctx.message.location;
     setCtx(ctx.from.id, { location: { lat: latitude, lng: longitude } });
-    await ctx.reply("Got it ✅ حالا بنویس مثلاً: pizza یا best pizza");
+
+    // remove the location keyboard
+    await ctx.reply("✅ Location saved. Now choose cuisine/rating/reviews or show results.", Markup.removeKeyboard());
+    await ctx.reply("🏠 Menu:", homeKeyboard());
   });
 
-  // ---------- top commands ----------
-  bot.command("top5", async (ctx) => {
-    const userText = ctx.message.text.replace("/top5", "").trim();
-    if (!userText) return ctx.reply("مثال: /top5 pizza");
-    return handleSearch(ctx, userText, 5);
+  bot.action(/^dish:(.*)$/i, async (ctx) => {
+  const dish = ctx.match[1];
+  setCtx(ctx.from.id, { dish: dish === "any" ? null : dish });
+  await ctx.answerCbQuery(`Dish: ${dish === "any" ? "Any" : dish}`);
+  await ctx.editMessageText("✅ Saved. What next?", homeKeyboard());
+});
+  // --- Cuisine / Rating / Reviews selection ---
+  bot.action(/^cuisine:(.*)$/i, async (ctx) => {
+    const cuisine = ctx.match[1] || null;
+    setCtx(ctx.from.id, { cuisine: cuisine || null });
+    await ctx.answerCbQuery(`Cuisine: ${cuisine || "Any"}`);
+    await ctx.editMessageText("✅ Saved. What next?", homeKeyboard());
   });
 
-  bot.command("top10", async (ctx) => {
-    const userText = ctx.message.text.replace("/top10", "").trim();
-    if (!userText) return ctx.reply("مثال: /top10 burger");
-    return handleSearch(ctx, userText, 10);
+  bot.action(/^rating:(.*)$/i, async (ctx) => {
+    const r = Number(ctx.match[1]);
+    setCtx(ctx.from.id, { minRating: Number.isFinite(r) ? r : 0 });
+    await ctx.answerCbQuery(`Min rating: ${r || 0}`);
+    await ctx.editMessageText("✅ Saved. What next?", homeKeyboard());
   });
 
-  // ---------- normal text search ----------
+  bot.action(/^reviews:(.*)$/i, async (ctx) => {
+    const n = Number(ctx.match[1]);
+    setCtx(ctx.from.id, { minReviews: Number.isFinite(n) ? Math.floor(n) : 0 });
+    await ctx.answerCbQuery(`Min reviews: ${n || 0}`);
+    await ctx.editMessageText("✅ Saved. What next?", homeKeyboard());
+  });
+
+  // --- Results pagination controls ---
+  bot.action("results:refresh", async (ctx) => {
+    await ctx.answerCbQuery();
+    return showResults(ctx, { refresh: true });
+  });
+
+  bot.action("results:next", async (ctx) => {
+    await ctx.answerCbQuery();
+    const s = getCtx(ctx.from.id);
+    setCtx(ctx.from.id, { page: s.page + 1 });
+    return showResults(ctx, { refresh: false });
+  });
+
+  bot.action("results:prev", async (ctx) => {
+    await ctx.answerCbQuery();
+    const s = getCtx(ctx.from.id);
+    setCtx(ctx.from.id, { page: Math.max(0, s.page - 1) });
+    return showResults(ctx, { refresh: false });
+  });
+
+  // --- Optional: ignore normal text to make it “buttons only”
   bot.on("text", async (ctx) => {
-    const userText = ctx.message.text.trim();
-    if (!userText) return;
-    return handleSearch(ctx, userText, 5);
+    const t = ctx.message.text.trim();
+    if (t.startsWith("/")) return; // ignore commands here
+    return ctx.reply("👆 لطفاً از منو استفاده کن. /menu");
   });
 }
 
-async function handleSearch(ctx, userText, max) {
-  try {
-    await ctx.reply("دارم می‌گردم... 🔎");
+async function showResults(ctx, { refresh }) {
+  const userId = ctx.from.id;
+  const s = getCtx(userId);
 
-    const state = getCtx(ctx.from.id);
-    const textQuery = buildTextQuery(state, userText);
+  // Build query from context (cuisine + best + city)
+const cuisine = s.cuisine ? `${s.cuisine} ` : "";
+const dish = s.dish ? `${s.dish} ` : "";
+const base = s.dish ? `best ${dish}` : "best restaurant"; // button-only version
+const textQuery = s.location
+  ? `${cuisine}${base}`
+  : `${cuisine}${base} in ${s.city || "Berlin"}`;
+  
+  let results = s.lastResults;
 
-    // Fetch more then filter/sort ourselves
+  if (refresh || !results.length) {
+    // fetch more then filter/sort ourselves
     const raw = await searchPlaces({
-    textQuery,
-    maxResultCount: 20,
-    location: state.location, // 👈 این اضافه شد
+      textQuery,
+      maxResultCount: 20,
+      location: s.location,
     });
-    const filtered = applyFiltersAndRank(raw, state).slice(0, max);
-
-    if (!filtered.length) {
-      return ctx.reply(
-        "بعد از اعمال فیلترها چیزی پیدا نشد 😕\n" +
-          "فیلترها رو سبک‌تر کن:\n" +
-          "/minreviews 0\n" +
-          "/minrating 0"
-      );
-    }
-
-    return ctx.reply(formatPlacesMessage(filtered));
-  } catch (err) {
-    if (err?.status === 429) {
-      return ctx.reply("به محدودیت درخواست‌ها (quota) رسیدیم ⛔️\nکمی بعد دوباره امتحان کن.");
-    }
-    console.error("Bot error:", err);
-    return ctx.reply("یه خطا پیش اومد 😕 لطفاً دوباره امتحان کن.");
+    results = applyFiltersAndRank(raw, s);
+    setCtx(userId, { lastResults: results, lastQuery: textQuery, page: 0 });
   }
-}
 
-function buildTextQuery(userCtx, userText) {
-  const cuisine = userCtx.cuisine ? `${userCtx.cuisine} ` : "";
-  const base = userText.toLowerCase().includes("best") ? userText : `best ${userText}`;
+  const page = getCtx(userId).page;
+  const pageSize = s.pageSize || 5;
 
-  // MVP: if location exists, we keep text (and later we can bias by location)
-  if (userCtx.location) return `${cuisine}${base}`;
+  const start = page * pageSize;
+  const slice = results.slice(start, start + pageSize);
 
-  return `${cuisine}${base} in ${userCtx.city || "Berlin"}`;
+  if (!slice.length) {
+    // if user paged too far
+    setCtx(userId, { page: 0 });
+    return ctx.reply(
+      "No more results 😕\nTry refresh or lower filters.",
+      resultsKeyboard()
+    );
+  }
+
+  const header =
+    `🔎 Results (${results.length})\n` +
+    `• Cuisine: ${s.cuisine || "Any"}\n` +
+    `• Min rating: ${s.minRating || 0}\n` +
+    `• Min reviews: ${s.minReviews || 0}\n` +
+    `• Area: ${s.location ? "Near me" : s.city}\n\n`;
+
+  return ctx.reply(header + formatPlacesMessage(slice), resultsKeyboard());
 }
 
 function rankScore(p) {
