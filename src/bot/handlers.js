@@ -2,6 +2,7 @@ import { Markup } from "telegraf";
 import { searchPlaces } from "../services/places.service.js";
 import { formatPlacesMessage } from "./format.js";
 import { getCtx, setCtx } from "./session.js";
+import { trackTelegramEvent } from "../services/analytics.service.js";
 import {
   cuisineKeyboard,
   ratingKeyboard,
@@ -33,12 +34,14 @@ export function registerBotHandlers(bot) {
       "👋 Welcome!\n\nLet's find restaurants step by step.\n1) Share your location to begin.",
       startKeyboard()
     );
+    trackTelegramEvent(ctx, "bot_started");
   });
 
   bot.command("help", async (ctx) => {
     await ctx.reply(
       "Use /start to begin.\nThen follow the buttons:\n1) Location\n2) Search range (near me / city-wide)\n3) Cuisine\n4) Filter mode (rating/reviews/both)\n5) Results"
     );
+    trackTelegramEvent(ctx, "help_opened");
   });
 
   // --- NAVIGATION ---
@@ -62,6 +65,7 @@ export function registerBotHandlers(bot) {
       "Where do you want to explore?\nShare your location to continue.",
       startKeyboard()
     );
+    trackTelegramEvent(ctx, "nav_home");
   });
 
   // --- HOME actions (location only) ---
@@ -72,6 +76,7 @@ export function registerBotHandlers(bot) {
       "Tap the button below to share your location:",
       Markup.keyboard([[Markup.button.locationRequest("📍 Share location")]]).oneTime().resize()
     );
+    trackTelegramEvent(ctx, "location_prompt_shown");
   });
 
   bot.on("location", async (ctx) => {
@@ -83,6 +88,7 @@ export function registerBotHandlers(bot) {
 
     await ctx.reply("✅ Location saved.", Markup.removeKeyboard());
     await ctx.reply("2) How far should I search from your location?", distanceKeyboard());
+    trackTelegramEvent(ctx, "location_shared");
   });
 
   bot.action(/^range:(\d+)$/i, async (ctx) => {
@@ -101,6 +107,10 @@ export function registerBotHandlers(bot) {
     });
     await ctx.answerCbQuery(`Range: ${radiusLabel}`);
     await ctx.editMessageText(`✅ Range set: ${radiusLabel}\n\n3) What cuisine do you want?`, cuisineKeyboard());
+    trackTelegramEvent(ctx, "range_selected", {
+      radius_meters: Number.isFinite(meters) ? meters : 3000,
+      radius_label: radiusLabel,
+    });
   });
 
   // --- Cuisine / Rating / Reviews selection ---
@@ -117,10 +127,14 @@ export function registerBotHandlers(bot) {
       "How should I filter results?\nChoose rating, reviews, or both.",
       filterModeKeyboard()
     );
+    trackTelegramEvent(ctx, "cuisine_selected", {
+      cuisine: cuisine || "any",
+    });
   });
 
   bot.action(/^filter:(.*)$/i, async (ctx) => {
     const mode = ctx.match[1];
+    trackTelegramEvent(ctx, "filter_mode_selected", { mode });
     if (mode === "rating") {
       setCtx(ctx.from.id, { step: "PICK_RATING", pendingFilterMode: "rating" });
       await ctx.answerCbQuery();
@@ -152,6 +166,9 @@ export function registerBotHandlers(bot) {
     const s = getCtx(ctx.from.id);
     setCtx(ctx.from.id, { minRating: Number.isFinite(r) ? r : 0 });
     await ctx.answerCbQuery(`Min rating: ${r || 0}`);
+    trackTelegramEvent(ctx, "rating_selected", {
+      min_rating: Number.isFinite(r) ? r : 0,
+    });
 
     if (s.pendingFilterMode === "both") {
       setCtx(ctx.from.id, { step: "PICK_REVIEWS" });
@@ -169,12 +186,16 @@ export function registerBotHandlers(bot) {
       step: "RESULTS",
     });
     await ctx.answerCbQuery(`Min reviews: ${n || 0}`);
+    trackTelegramEvent(ctx, "reviews_selected", {
+      min_reviews: Number.isFinite(n) ? Math.floor(n) : 0,
+    });
     await showResults(ctx, { refresh: true, editMessage: true });
   });
 
   // --- Results pagination controls ---
   bot.action("results:refresh", async (ctx) => {
     await ctx.answerCbQuery();
+    trackTelegramEvent(ctx, "results_refresh_clicked");
     return showResults(ctx, { refresh: true });
   });
 
@@ -182,6 +203,7 @@ export function registerBotHandlers(bot) {
     await ctx.answerCbQuery();
     const s = getCtx(ctx.from.id);
     setCtx(ctx.from.id, { page: s.page + 1 });
+    trackTelegramEvent(ctx, "results_next_clicked", { next_page: s.page + 1 });
     return showResults(ctx, { refresh: false });
   });
 
@@ -189,6 +211,7 @@ export function registerBotHandlers(bot) {
     await ctx.answerCbQuery();
     const s = getCtx(ctx.from.id);
     setCtx(ctx.from.id, { page: Math.max(0, s.page - 1) });
+    trackTelegramEvent(ctx, "results_prev_clicked", { prev_page: Math.max(0, s.page - 1) });
     return showResults(ctx, { refresh: false });
   });
 
@@ -249,6 +272,17 @@ async function showResults(ctx, { refresh, editMessage = false }) {
     `• Area: ${s.location ? s.radiusLabel || "Near me (3 km)" : s.city}\n\n`;
 
   const text = header + formatPlacesMessage(slice);
+  trackTelegramEvent(ctx, "results_viewed", {
+    refresh,
+    page,
+    page_size: pageSize,
+    total_results: results.length,
+    shown_results: slice.length,
+    cuisine: s.cuisine || "any",
+    min_rating: s.minRating || 0,
+    min_reviews: s.minReviews || 0,
+    area: s.location ? s.radiusLabel || "Near me (3 km)" : s.city,
+  });
   return editMessage
     ? ctx.editMessageText(text, { parse_mode: "HTML", ...resultsKeyboard() })
     : ctx.reply(text, { parse_mode: "HTML", ...resultsKeyboard() });

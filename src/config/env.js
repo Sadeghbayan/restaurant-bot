@@ -23,4 +23,8 @@ export const env = {
   upstashRedisRestUrl: process.env.UPSTASH_REDIS_REST_URL || "",
   upstashRedisRestToken: process.env.UPSTASH_REDIS_REST_TOKEN || "",
   placesCacheTtlSeconds: Number(process.env.PLACES_CACHE_TTL_SECONDS || 300),
+
+  // Optional product analytics
+  posthogApiKey: process.env.POSTHOG_API_KEY || "",
+  posthogHost: process.env.POSTHOG_HOST || "https://us.i.posthog.com",
 };

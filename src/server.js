@@ -1,6 +1,7 @@
 import { env } from "./config/env.js";
 import { createBot } from "./bot/bot.js";
 import { createApp } from "./app.js";
+import { shutdownAnalytics } from "./services/analytics.service.js";
 
 async function main() {
   const bot = createBot();
@@ -23,8 +24,14 @@ async function main() {
     console.log("Webhook set to:", webhookUrl);
   });
 
-  process.once("SIGINT", () => bot.stop("SIGINT"));
-  process.once("SIGTERM", () => bot.stop("SIGTERM"));
+  process.once("SIGINT", async () => {
+    bot.stop("SIGINT");
+    await shutdownAnalytics();
+  });
+  process.once("SIGTERM", async () => {
+    bot.stop("SIGTERM");
+    await shutdownAnalytics();
+  });
 }
 
 main().catch((e) => {
