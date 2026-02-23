@@ -71,23 +71,12 @@ export async function searchPlaces({
     address: p.formattedAddress || "-",
     rating: p.rating ?? 0,
     ratingsCount: p.userRatingCount ?? 0,
-    mapsUrl: toShortMapsUrl(p),
+    mapsUrl: p.googleMapsUri || "",
     location: p.location || null,
   }));
 
   await cacheSet(cacheKey, JSON.stringify(places), env.placesCacheTtlSeconds);
   return places;
-}
-
-function toShortMapsUrl(place) {
-  const lat = place?.location?.latitude;
-  const lng = place?.location?.longitude;
-
-  if (typeof lat === "number" && typeof lng === "number") {
-    return `https://maps.google.com/?q=${lat},${lng}`;
-  }
-
-  return place?.googleMapsUri || "";
 }
 
 function buildPlacesCacheKey({ textQuery, maxResultCount, location, radiusMeters }) {
