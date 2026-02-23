@@ -20,5 +20,7 @@ export const env = {
 
   // Optional Redis cache
   redisUrl: process.env.REDIS_URL || "",
+  upstashRedisRestUrl: process.env.UPSTASH_REDIS_REST_URL || "",
+  upstashRedisRestToken: process.env.UPSTASH_REDIS_REST_TOKEN || "",
   placesCacheTtlSeconds: Number(process.env.PLACES_CACHE_TTL_SECONDS || 300),
 };

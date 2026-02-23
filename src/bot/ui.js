@@ -62,8 +62,16 @@ export function reviewsKeyboard() {
   ]);
 }
 
-export function resultsKeyboard() {
+export function resultsKeyboard(places = [], startIndex = 0) {
+  const mapRows = places
+    .map((p, idx) => {
+      if (!p?.mapsUrl) return null;
+      return [Markup.button.url(`📍 #${startIndex + idx + 1} Open in Maps`, p.mapsUrl)];
+    })
+    .filter(Boolean);
+
   return Markup.inlineKeyboard([
+    ...mapRows,
     [Markup.button.callback("🔄 Refresh", "results:refresh"), Markup.button.callback("🏠 Home", "nav:home")],
     [Markup.button.callback("⬅️ Prev", "results:prev"), Markup.button.callback("Next ➡️", "results:next")],
   ]);

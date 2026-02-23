@@ -247,7 +247,9 @@ async function showResults(ctx, { refresh, editMessage = false }) {
     `• Area: ${s.location ? s.radiusLabel || "Near me (3 km)" : s.city}\n\n`;
 
   const text = header + formatPlacesMessage(slice);
-  return editMessage ? ctx.editMessageText(text, resultsKeyboard()) : ctx.reply(text, resultsKeyboard());
+  return editMessage
+    ? ctx.editMessageText(text, resultsKeyboard(slice, start))
+    : ctx.reply(text, resultsKeyboard(slice, start));
 }
 
 function rankScore(p) {
