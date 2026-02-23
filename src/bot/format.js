@@ -4,7 +4,7 @@ export function formatPlacesMessage(places) {
       const line1 = `${i + 1}) ${r.name}`;
       const line2 = `⭐️ ${r.rating} (${r.ratingsCount})`;
       const line3 = r.address;
-      const line4 = r.mapsUrl ? `📍 ${r.mapsUrl}` : "";
+      const line4 = r.mapsUrl ? "📍 Open in Google Maps" : "";
       return [line1, line2, line3, line4].filter(Boolean).join("\n");
     })
     .join("\n\n")

@@ -17,4 +17,8 @@ export const env = {
 
   // Render sets this automatically (very helpful)
   publicBaseUrl: process.env.RENDER_EXTERNAL_URL || process.env.PUBLIC_BASE_URL || "",
+
+  // Optional Redis cache
+  redisUrl: process.env.REDIS_URL || "",
+  placesCacheTtlSeconds: Number(process.env.PLACES_CACHE_TTL_SECONDS || 300),
 };

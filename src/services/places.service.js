@@ -1,5 +1,7 @@
 import fetch from "node-fetch";
+import { createHash } from "node:crypto";
 import { env } from "../config/env.js";
+import { cacheGet, cacheSet } from "./cache.service.js";
 
 const URL = "https://places.googleapis.com/v1/places:searchText";
 
@@ -30,6 +32,21 @@ export async function searchPlaces({
     };
   }
 
+  const cacheKey = buildPlacesCacheKey({
+    textQuery,
+    maxResultCount,
+    location,
+    radiusMeters,
+  });
+  const cachedRaw = await cacheGet(cacheKey);
+  if (cachedRaw) {
+    try {
+      return JSON.parse(cachedRaw);
+    } catch {
+      // ignore invalid cache payload and continue with fresh fetch
+    }
+  }
+
   const resp = await fetch(URL, {
     method: "POST",
     headers: {
@@ -49,12 +66,37 @@ export async function searchPlaces({
     throw err;
   }
 
-  return (data.places || []).map((p) => ({
+  const places = (data.places || []).map((p) => ({
     name: p.displayName?.text || "Unknown",
     address: p.formattedAddress || "-",
     rating: p.rating ?? 0,
     ratingsCount: p.userRatingCount ?? 0,
-    mapsUrl: p.googleMapsUri || "",
+    mapsUrl: toShortMapsUrl(p),
     location: p.location || null,
   }));
+
+  await cacheSet(cacheKey, JSON.stringify(places), env.placesCacheTtlSeconds);
+  return places;
+}
+
+function toShortMapsUrl(place) {
+  const lat = place?.location?.latitude;
+  const lng = place?.location?.longitude;
+
+  if (typeof lat === "number" && typeof lng === "number") {
+    return `https://maps.google.com/?q=${lat},${lng}`;
+  }
+
+  return place?.googleMapsUri || "";
+}
+
+function buildPlacesCacheKey({ textQuery, maxResultCount, location, radiusMeters }) {
+  const payload = JSON.stringify({
+    textQuery,
+    maxResultCount,
+    location: location ? { lat: location.lat, lng: location.lng } : null,
+    radiusMeters,
+  });
+  const digest = createHash("sha256").update(payload).digest("hex");
+  return `places:search:${digest}`;
 }
