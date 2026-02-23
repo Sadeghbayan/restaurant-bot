@@ -3,7 +3,7 @@ const store = new Map();
 export function getCtx(userId) {
   if (!store.has(userId)) {
     store.set(userId, {
-      step: "HOME",            // HOME | ASK_LOCATION | ASK_CUISINE | ASK_FILTER_MODE | PICK_RATING | PICK_REVIEWS | RESULTS
+      step: "HOME",            // HOME | ASK_LOCATION | ASK_CITY_TEXT | ASK_CUISINE | ASK_FILTER_MODE | PICK_RATING | PICK_REVIEWS | RESULTS
       cuisine: null,
       dish: null,
       minReviews: 0,

@@ -9,7 +9,6 @@ import {
   resultsKeyboard,
   startKeyboard,
   filterModeKeyboard,
-  popularPlacesKeyboard,
 } from "./ui.js";
 
 export function registerBotHandlers(bot) {
@@ -28,7 +27,7 @@ export function registerBotHandlers(bot) {
       pendingFilterMode: null,
     });
     await ctx.reply(
-      "👋 Welcome!\n\nLet's find restaurants step by step.\n1) Where do you want to explore?\nShare your live location or pick a popular country/city.",
+      "👋 Welcome!\n\nLet's find restaurants step by step.\n1) Where do you want to explore?\nShare your live location, or enter your city.",
       startKeyboard()
     );
   });
@@ -53,7 +52,7 @@ export function registerBotHandlers(bot) {
       pendingFilterMode: null,
     });
     await ctx.editMessageText(
-      "Where do you want to explore?\nShare your live location or pick a popular country/city.",
+      "Where do you want to explore?\nShare your live location, or enter your city.",
       startKeyboard()
     );
   });
@@ -74,16 +73,29 @@ export function registerBotHandlers(bot) {
     setCtx(ctx.from.id, { step: "ASK_LOCATION" });
     await ctx.answerCbQuery();
     await ctx.reply(
-      "📍 Tap the button below to share your location.",
-      Markup.keyboard([[Markup.button.locationRequest("📍 Share location")]])
-        .resize()
-        .persistent()
-        .inputFieldPlaceholder("Tap to share your live location")
+      "Choose one option:",
+      Markup.keyboard([
+        [Markup.button.locationRequest("📍 Share location"), "🏙 Enter city"],
+        ["🏙 Berlin (example)"],
+      ]).oneTime().resize()
     );
-    await ctx.reply(
-      "If location sharing is unavailable on your device, choose a popular place:",
-      popularPlacesKeyboard()
-    );
+  });
+
+  bot.action("home:manualcity", async (ctx) => {
+    setCtx(ctx.from.id, { step: "ASK_CITY_TEXT", location: null });
+    await ctx.answerCbQuery();
+    await ctx.reply("🏙 Please type your city name (example: Berlin).", Markup.removeKeyboard());
+  });
+
+  bot.hears("🏙 Enter city", async (ctx) => {
+    setCtx(ctx.from.id, { step: "ASK_CITY_TEXT", location: null });
+    await ctx.reply("🏙 Please type your city name (example: Berlin).");
+  });
+
+  bot.hears("🏙 Berlin (example)", async (ctx) => {
+    setCtx(ctx.from.id, { city: "Berlin", location: null, step: "ASK_CUISINE" });
+    await ctx.reply("🏙 Great, exploring in Berlin.", Markup.removeKeyboard());
+    await ctx.reply("What cuisine do you want?", cuisineKeyboard());
   });
 
   bot.on("location", async (ctx) => {
@@ -191,6 +203,19 @@ export function registerBotHandlers(bot) {
   bot.on("text", async (ctx) => {
     const t = ctx.message.text.trim();
     if (t.startsWith("/")) return; // ignore commands here
+    const s = getCtx(ctx.from.id);
+
+    if (s.step === "ASK_CITY_TEXT" || s.step === "ASK_LOCATION") {
+      setCtx(ctx.from.id, {
+        city: t,
+        location: null,
+        step: "ASK_CUISINE",
+      });
+      await ctx.reply(`🏙 Great, exploring in ${t}.`);
+      await ctx.reply("What cuisine do you want?", cuisineKeyboard());
+      return;
+    }
+
     return ctx.reply(
       "Use /start to begin the guided flow.\nI will ask location, cuisine, and filters step by step."
     );

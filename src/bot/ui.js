@@ -2,23 +2,15 @@ import { Markup } from "telegraf";
 
 export function startKeyboard() {
   return Markup.inlineKeyboard([
-    [Markup.button.callback("📍 Share location", "home:nearme"), Markup.button.callback("🏙 Berlin", "home:city:Berlin")],
-    [Markup.button.callback("🇩🇪 Germany", "home:city:Germany"), Markup.button.callback("🇺🇸 USA", "home:city:USA")],
-    [Markup.button.callback("🇮🇹 Italy", "home:city:Italy"), Markup.button.callback("🇪🇸 Spain", "home:city:Spain")],
-    [Markup.button.callback("🇮🇷 Iran", "home:city:Iran"), Markup.button.callback("🗼 Paris", "home:city:Paris")],
-    [Markup.button.callback("🇬🇧 UK", "home:city:United Kingdom"), Markup.button.callback("🇦🇪 UAE", "home:city:UAE")],
-    [Markup.button.callback("🇹🇷 Turkey", "home:city:Turkey"), Markup.button.callback("🇫🇷 France", "home:city:France")],
+    [Markup.button.callback("📍 Share location", "home:nearme"), Markup.button.callback("🏙 Enter city", "home:manualcity")],
+    [Markup.button.callback("🏙 Berlin (example)", "home:city:Berlin")],
   ]);
 }
 
-export function popularPlacesKeyboard() {
+export function manualCityKeyboard() {
   return Markup.inlineKeyboard([
-    [Markup.button.callback("🇩🇪 Germany", "home:city:Germany"), Markup.button.callback("🇺🇸 USA", "home:city:USA")],
-    [Markup.button.callback("🇮🇹 Italy", "home:city:Italy"), Markup.button.callback("🇪🇸 Spain", "home:city:Spain")],
-    [Markup.button.callback("🇮🇷 Iran", "home:city:Iran"), Markup.button.callback("🗼 Paris", "home:city:Paris")],
-    [Markup.button.callback("🇬🇧 UK", "home:city:United Kingdom"), Markup.button.callback("🇦🇪 UAE", "home:city:UAE")],
-    [Markup.button.callback("🇹🇷 Turkey", "home:city:Turkey"), Markup.button.callback("🇫🇷 France", "home:city:France")],
-    [Markup.button.callback("🏙 Berlin", "home:city:Berlin")],
+    [Markup.button.callback("🏙 Berlin (example)", "home:city:Berlin")],
+    [Markup.button.callback("⬅️ Back", "nav:home")],
   ]);
 }
 
