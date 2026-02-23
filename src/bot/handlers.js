@@ -236,7 +236,9 @@ async function showResults(ctx, { refresh, editMessage = false }) {
   if (!slice.length) {
     setCtx(userId, { page: 0 });
     const text = "No more results 😕\nTry refresh or lower filters.";
-    return editMessage ? ctx.editMessageText(text, resultsKeyboard()) : ctx.reply(text, resultsKeyboard());
+    return editMessage
+      ? ctx.editMessageText(text, { parse_mode: "HTML", ...resultsKeyboard() })
+      : ctx.reply(text, { parse_mode: "HTML", ...resultsKeyboard() });
   }
 
   const header =
@@ -248,8 +250,8 @@ async function showResults(ctx, { refresh, editMessage = false }) {
 
   const text = header + formatPlacesMessage(slice);
   return editMessage
-    ? ctx.editMessageText(text, resultsKeyboard(slice, start))
-    : ctx.reply(text, resultsKeyboard(slice, start));
+    ? ctx.editMessageText(text, { parse_mode: "HTML", ...resultsKeyboard() })
+    : ctx.reply(text, { parse_mode: "HTML", ...resultsKeyboard() });
 }
 
 function rankScore(p) {
