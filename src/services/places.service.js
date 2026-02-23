@@ -10,13 +10,14 @@ export async function searchPlaces({
   textQuery,
   maxResultCount = 10,
   location = null, // { lat, lng }
+  radiusMeters = 5000,
 }) {
   const body = {
     textQuery,
     maxResultCount,
   };
 
-  // 🔥 اگر لوکیشن داشتیم → location bias اضافه کن
+  // If location is available, apply a configurable location bias radius.
   if (location?.lat && location?.lng) {
     body.locationBias = {
       circle: {
@@ -24,7 +25,7 @@ export async function searchPlaces({
           latitude: location.lat,
           longitude: location.lng,
         },
-        radius: 5000, // 5km (می‌تونی تغییر بدی)
+        radius: radiusMeters,
       },
     };
   }

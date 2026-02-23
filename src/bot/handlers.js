@@ -9,6 +9,7 @@ import {
   resultsKeyboard,
   startKeyboard,
   filterModeKeyboard,
+  distanceKeyboard,
 } from "./ui.js";
 
 export function registerBotHandlers(bot) {
@@ -22,19 +23,21 @@ export function registerBotHandlers(bot) {
       minRating: 0,
       location: null,
       city: "Berlin",
+      searchRadiusMeters: 5000,
+      radiusLabel: "Local area (5 km)",
       page: 0,
       lastResults: [],
       pendingFilterMode: null,
     });
     await ctx.reply(
-      "👋 Welcome!\n\nLet's find restaurants step by step.\n1) Where do you want to explore?\nShare your live location, or enter your city.",
+      "👋 Welcome!\n\nLet's find restaurants step by step.\n1) Share your location to begin.",
       startKeyboard()
     );
   });
 
   bot.command("help", async (ctx) => {
     await ctx.reply(
-      "Use /start to begin.\nThen follow the buttons:\n1) Location\n2) Cuisine\n3) Filter mode (rating/reviews/both)\n4) Results"
+      "Use /start to begin.\nThen follow the buttons:\n1) Location\n2) Search range (near me / city-wide)\n3) Cuisine\n4) Filter mode (rating/reviews/both)\n5) Results"
     );
   });
 
@@ -47,67 +50,59 @@ export function registerBotHandlers(bot) {
       dish: null,
       minReviews: 0,
       minRating: 0,
+      location: null,
+      city: "Berlin",
+      searchRadiusMeters: 5000,
+      radiusLabel: "Local area (5 km)",
       page: 0,
       lastResults: [],
       pendingFilterMode: null,
     });
     await ctx.editMessageText(
-      "Where do you want to explore?\nShare your live location, or enter your city.",
+      "Where do you want to explore?\nShare your location to continue.",
       startKeyboard()
     );
   });
 
-  // --- HOME actions (location / city) ---
-  bot.action(/^home:city:(.*)$/i, async (ctx) => {
-    const city = ctx.match[1];
-    setCtx(ctx.from.id, { city, location: null, step: "ASK_CUISINE" });
-    await ctx.answerCbQuery(`City set: ${city}`);
-    await ctx.editMessageText(
-      `🏙 Great, exploring in ${city}.\n\nWhat cuisine do you want?`,
-      cuisineKeyboard()
-    );
-  });
-
+  // --- HOME actions (location only) ---
   bot.action("home:nearme", async (ctx) => {
-    // ask for location using reply keyboard
     setCtx(ctx.from.id, { step: "ASK_LOCATION" });
     await ctx.answerCbQuery();
     await ctx.reply(
-      "Choose one option:",
-      Markup.keyboard([
-        [Markup.button.locationRequest("📍 Share location"), "🏙 Enter city"],
-        ["🏙 Berlin (example)"],
-      ]).oneTime().resize()
+      "Tap the button below to share your location:",
+      Markup.keyboard([[Markup.button.locationRequest("📍 Share location")]]).oneTime().resize()
     );
-  });
-
-  bot.action("home:manualcity", async (ctx) => {
-    setCtx(ctx.from.id, { step: "ASK_CITY_TEXT", location: null });
-    await ctx.answerCbQuery();
-    await ctx.reply("🏙 Please type your city name (example: Berlin).", Markup.removeKeyboard());
-  });
-
-  bot.hears("🏙 Enter city", async (ctx) => {
-    setCtx(ctx.from.id, { step: "ASK_CITY_TEXT", location: null });
-    await ctx.reply("🏙 Please type your city name (example: Berlin).");
-  });
-
-  bot.hears("🏙 Berlin (example)", async (ctx) => {
-    setCtx(ctx.from.id, { city: "Berlin", location: null, step: "ASK_CUISINE" });
-    await ctx.reply("🏙 Great, exploring in Berlin.", Markup.removeKeyboard());
-    await ctx.reply("What cuisine do you want?", cuisineKeyboard());
   });
 
   bot.on("location", async (ctx) => {
     const { latitude, longitude } = ctx.message.location;
     setCtx(ctx.from.id, {
       location: { lat: latitude, lng: longitude },
-      step: "ASK_CUISINE",
+      step: "ASK_RANGE",
     });
 
-    // remove the location keyboard
     await ctx.reply("✅ Location saved.", Markup.removeKeyboard());
-    await ctx.reply("What cuisine do you want?", cuisineKeyboard());
+    await ctx.reply("2) How far should I search from your location?", distanceKeyboard());
+  });
+
+  bot.action(/^range:(\d+)$/i, async (ctx) => {
+    const meters = Number(ctx.match[1]);
+    const labelMap = {
+      1000: "Very near (1 km)",
+      3000: "Near me (3 km)",
+      5000: "Local area (5 km)",
+      10000: "Wider area (10 km)",
+      25000: "City-wide (25 km)",
+    };
+
+    const radiusLabel = labelMap[meters] || "Local area (5 km)";
+    setCtx(ctx.from.id, {
+      searchRadiusMeters: Number.isFinite(meters) ? meters : 5000,
+      radiusLabel,
+      step: "ASK_CUISINE",
+    });
+    await ctx.answerCbQuery(`Range: ${radiusLabel}`);
+    await ctx.editMessageText(`✅ Range set: ${radiusLabel}\n\n3) What cuisine do you want?`, cuisineKeyboard());
   });
 
   // --- Cuisine / Rating / Reviews selection ---
@@ -199,25 +194,13 @@ export function registerBotHandlers(bot) {
     return showResults(ctx, { refresh: false });
   });
 
-  // --- Hint users toward the wizard flow
+  // --- Hint users toward the wizard flow ---
   bot.on("text", async (ctx) => {
     const t = ctx.message.text.trim();
-    if (t.startsWith("/")) return; // ignore commands here
-    const s = getCtx(ctx.from.id);
-
-    if (s.step === "ASK_CITY_TEXT" || s.step === "ASK_LOCATION") {
-      setCtx(ctx.from.id, {
-        city: t,
-        location: null,
-        step: "ASK_CUISINE",
-      });
-      await ctx.reply(`🏙 Great, exploring in ${t}.`);
-      await ctx.reply("What cuisine do you want?", cuisineKeyboard());
-      return;
-    }
+    if (t.startsWith("/")) return;
 
     return ctx.reply(
-      "Use /start to begin the guided flow.\nI will ask location, cuisine, and filters step by step."
+      "Use /start to begin.\nStep 1 is sharing your location."
     );
   });
 }
@@ -226,7 +209,6 @@ async function showResults(ctx, { refresh, editMessage = false }) {
   const userId = ctx.from.id;
   const s = getCtx(userId);
 
-  // Build query from context (cuisine + best + city)
   const cuisine = s.cuisine ? `${s.cuisine} ` : "";
   const dish = s.dish ? `${s.dish} ` : "";
   const base = s.dish ? `best ${dish}` : "best restaurant";
@@ -237,11 +219,11 @@ async function showResults(ctx, { refresh, editMessage = false }) {
   let results = s.lastResults;
 
   if (refresh || !results.length) {
-    // fetch more then filter/sort ourselves
     const raw = await searchPlaces({
       textQuery,
       maxResultCount: 20,
       location: s.location,
+      radiusMeters: s.searchRadiusMeters || 5000,
     });
     results = applyFiltersAndRank(raw, s);
     setCtx(userId, { lastResults: results, lastQuery: textQuery, page: 0 });
@@ -254,7 +236,6 @@ async function showResults(ctx, { refresh, editMessage = false }) {
   const slice = results.slice(start, start + pageSize);
 
   if (!slice.length) {
-    // if user paged too far
     setCtx(userId, { page: 0 });
     const text = "No more results 😕\nTry refresh or lower filters.";
     return editMessage ? ctx.editMessageText(text, resultsKeyboard()) : ctx.reply(text, resultsKeyboard());
@@ -265,7 +246,7 @@ async function showResults(ctx, { refresh, editMessage = false }) {
     `• Cuisine: ${s.cuisine || "Any"}\n` +
     `• Min rating: ${s.minRating || 0}\n` +
     `• Min reviews: ${s.minReviews || 0}\n` +
-    `• Area: ${s.location ? "Near me" : s.city}\n\n`;
+    `• Area: ${s.location ? s.radiusLabel || "Near me (3 km)" : s.city}\n\n`;
 
   const text = header + formatPlacesMessage(slice);
   return editMessage ? ctx.editMessageText(text, resultsKeyboard()) : ctx.reply(text, resultsKeyboard());

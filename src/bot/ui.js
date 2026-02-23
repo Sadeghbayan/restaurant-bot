@@ -2,15 +2,16 @@ import { Markup } from "telegraf";
 
 export function startKeyboard() {
   return Markup.inlineKeyboard([
-    [Markup.button.callback("📍 Share location", "home:nearme"), Markup.button.callback("🏙 Enter city", "home:manualcity")],
-    [Markup.button.callback("🏙 Berlin (example)", "home:city:Berlin")],
+    [Markup.button.callback("📍 Share location", "home:nearme")],
   ]);
 }
 
-export function manualCityKeyboard() {
+export function distanceKeyboard() {
   return Markup.inlineKeyboard([
-    [Markup.button.callback("🏙 Berlin (example)", "home:city:Berlin")],
-    [Markup.button.callback("⬅️ Back", "nav:home")],
+    [Markup.button.callback("📌 Very near (1 km)", "range:1000"), Markup.button.callback("📍 Near me (3 km)", "range:3000")],
+    [Markup.button.callback("🛵 Local area (5 km)", "range:5000"), Markup.button.callback("🚗 Wider area (10 km)", "range:10000")],
+    [Markup.button.callback("🏙 City-wide (25 km)", "range:25000")],
+    [Markup.button.callback("⬅️ Restart", "nav:home")],
   ]);
 }
 
