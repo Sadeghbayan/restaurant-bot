@@ -8,8 +8,7 @@ export function startKeyboard() {
 
 export function distanceKeyboard() {
   return Markup.inlineKeyboard([
-    [Markup.button.callback("📌 Very near (1 km)", "range:1000"), Markup.button.callback("📍 Near me (3 km)", "range:3000")],
-    [Markup.button.callback("🛵 Local area (5 km)", "range:5000"), Markup.button.callback("🚗 Wider area (10 km)", "range:10000")],
+    [Markup.button.callback("📍 Near me (3 km)", "range:3000"), Markup.button.callback("🚗 Wider area (8 km)", "range:8000")],
     [Markup.button.callback("🏙 City-wide (25 km)", "range:25000")],
     [Markup.button.callback("⬅️ Restart", "nav:home")],
   ]);

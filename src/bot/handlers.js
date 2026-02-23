@@ -23,8 +23,8 @@ export function registerBotHandlers(bot) {
       minRating: 0,
       location: null,
       city: "Berlin",
-      searchRadiusMeters: 5000,
-      radiusLabel: "Local area (5 km)",
+      searchRadiusMeters: 3000,
+      radiusLabel: "Near me (3 km)",
       page: 0,
       lastResults: [],
       pendingFilterMode: null,
@@ -52,8 +52,8 @@ export function registerBotHandlers(bot) {
       minRating: 0,
       location: null,
       city: "Berlin",
-      searchRadiusMeters: 5000,
-      radiusLabel: "Local area (5 km)",
+      searchRadiusMeters: 3000,
+      radiusLabel: "Near me (3 km)",
       page: 0,
       lastResults: [],
       pendingFilterMode: null,
@@ -88,16 +88,14 @@ export function registerBotHandlers(bot) {
   bot.action(/^range:(\d+)$/i, async (ctx) => {
     const meters = Number(ctx.match[1]);
     const labelMap = {
-      1000: "Very near (1 km)",
       3000: "Near me (3 km)",
-      5000: "Local area (5 km)",
-      10000: "Wider area (10 km)",
+      8000: "Wider area (8 km)",
       25000: "City-wide (25 km)",
     };
 
-    const radiusLabel = labelMap[meters] || "Local area (5 km)";
+    const radiusLabel = labelMap[meters] || "Near me (3 km)";
     setCtx(ctx.from.id, {
-      searchRadiusMeters: Number.isFinite(meters) ? meters : 5000,
+      searchRadiusMeters: Number.isFinite(meters) ? meters : 3000,
       radiusLabel,
       step: "ASK_CUISINE",
     });
@@ -223,7 +221,7 @@ async function showResults(ctx, { refresh, editMessage = false }) {
       textQuery,
       maxResultCount: 20,
       location: s.location,
-      radiusMeters: s.searchRadiusMeters || 5000,
+      radiusMeters: s.searchRadiusMeters || 3000,
     });
     results = applyFiltersAndRank(raw, s);
     setCtx(userId, { lastResults: results, lastQuery: textQuery, page: 0 });

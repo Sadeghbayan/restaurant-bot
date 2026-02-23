@@ -11,8 +11,8 @@ export function getCtx(userId) {
       pendingFilterMode: null,
       location: null,
       city: "Berlin",
-      searchRadiusMeters: 5000,
-      radiusLabel: "Local area (5 km)",
+      searchRadiusMeters: 3000,
+      radiusLabel: "Near me (3 km)",
 
       lastQuery: null,
       lastResults: [],
