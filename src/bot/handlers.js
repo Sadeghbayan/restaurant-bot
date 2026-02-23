@@ -9,6 +9,7 @@ import {
   resultsKeyboard,
   startKeyboard,
   filterModeKeyboard,
+  popularPlacesKeyboard,
 } from "./ui.js";
 
 export function registerBotHandlers(bot) {
@@ -27,7 +28,7 @@ export function registerBotHandlers(bot) {
       pendingFilterMode: null,
     });
     await ctx.reply(
-      "👋 Welcome!\n\nLet's find restaurants step by step.\n1) Where do you want to explore?\nChoose Berlin or share your location.",
+      "👋 Welcome!\n\nLet's find restaurants step by step.\n1) Where do you want to explore?\nShare your live location or pick a popular country/city.",
       startKeyboard()
     );
   });
@@ -52,7 +53,7 @@ export function registerBotHandlers(bot) {
       pendingFilterMode: null,
     });
     await ctx.editMessageText(
-      "Where do you want to explore?\nChoose Berlin or share your location.",
+      "Where do you want to explore?\nShare your live location or pick a popular country/city.",
       startKeyboard()
     );
   });
@@ -73,8 +74,15 @@ export function registerBotHandlers(bot) {
     setCtx(ctx.from.id, { step: "ASK_LOCATION" });
     await ctx.answerCbQuery();
     await ctx.reply(
-      "📍 Please share your location:",
-      Markup.keyboard([[Markup.button.locationRequest("📍 Share location")]]).oneTime().resize()
+      "📍 Tap the button below to share your location.",
+      Markup.keyboard([[Markup.button.locationRequest("📍 Share location")]])
+        .resize()
+        .persistent()
+        .inputFieldPlaceholder("Tap to share your live location")
+    );
+    await ctx.reply(
+      "If location sharing is unavailable on your device, choose a popular place:",
+      popularPlacesKeyboard()
     );
   });
 
