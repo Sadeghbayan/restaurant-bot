@@ -6,7 +6,7 @@ import { cacheGet, cacheSet } from "./cache.service.js";
 const URL = "https://places.googleapis.com/v1/places:searchText";
 
 const FIELD_MASK =
-  "places.displayName,places.formattedAddress,places.rating,places.userRatingCount,places.googleMapsUri,places.location";
+  "places.id,places.displayName,places.formattedAddress,places.rating,places.userRatingCount,places.googleMapsUri,places.location";
 
 export async function searchPlaces({
   textQuery,
@@ -67,6 +67,7 @@ export async function searchPlaces({
   }
 
   const places = (data.places || []).map((p) => ({
+    placeId: p.id || "",
     name: p.displayName?.text || "Unknown",
     address: p.formattedAddress || "-",
     rating: p.rating ?? 0,

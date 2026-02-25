@@ -7,6 +7,12 @@ function required(name) {
   return v;
 }
 
+function flag(name, defaultValue = false) {
+  const v = process.env[name];
+  if (v == null) return defaultValue;
+  return ["1", "true", "yes", "on"].includes(String(v).toLowerCase());
+}
+
 export const env = {
   port: Number(process.env.PORT || 3000),
   telegramToken: required("TELEGRAM_BOT_TOKEN"),
@@ -27,4 +33,7 @@ export const env = {
   // Optional product analytics
   posthogApiKey: process.env.POSTHOG_API_KEY || "",
   posthogHost: process.env.POSTHOG_HOST || "https://us.i.posthog.com",
+
+  // Feature flags
+  trackingFeatureEnabled: flag("TRACKING_FEATURE_ENABLED", true),
 };

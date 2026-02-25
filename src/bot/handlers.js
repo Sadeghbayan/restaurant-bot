@@ -3,11 +3,14 @@ import { searchPlaces } from "../services/places.service.js";
 import { formatPlacesMessage } from "./format.js";
 import { getCtx, setCtx } from "./session.js";
 import { trackTelegramEvent } from "../services/analytics.service.js";
+import { addTrackedRestaurant, listTrackedRestaurants, removeTrackedRestaurant } from "../services/tracking.service.js";
+import { env } from "../config/env.js";
 import {
   cuisineKeyboard,
   ratingKeyboard,
   reviewsKeyboard,
   resultsKeyboard,
+  trackedListKeyboard,
   startKeyboard,
   filterModeKeyboard,
   distanceKeyboard,
@@ -39,9 +42,29 @@ export function registerBotHandlers(bot) {
 
   bot.command("help", async (ctx) => {
     await ctx.reply(
-      "Use /start to begin.\nThen follow the buttons:\n1) Location\n2) Search range (near me / city-wide)\n3) Cuisine\n4) Filter mode (rating/reviews/both)\n5) Results"
+      "Use /start to begin.\nThen follow the buttons:\n1) Location\n2) Search range (near me / city-wide)\n3) Cuisine\n4) Filter mode (rating/reviews/both)\n5) Results" +
+        (env.trackingFeatureEnabled ? "\n\nTracking:\nUse /tracked to view/remove tracked restaurants." : "")
     );
     trackTelegramEvent(ctx, "help_opened");
+  });
+
+  bot.command("tracked", async (ctx) => {
+    if (!env.trackingFeatureEnabled) {
+      await ctx.reply("Tracking is currently disabled.");
+      return;
+    }
+
+    const tracked = await listTrackedRestaurants(ctx.from.id);
+    if (!tracked.length) {
+      await ctx.reply("You are not tracking any restaurants yet.\nUse ⭐ Track buttons in results.");
+      return;
+    }
+
+    await ctx.reply(formatTrackedMessage(tracked), {
+      parse_mode: "HTML",
+      ...trackedListKeyboard(tracked),
+    });
+    trackTelegramEvent(ctx, "tracked_list_opened", { count: tracked.length });
   });
 
   // --- NAVIGATION ---
@@ -215,6 +238,66 @@ export function registerBotHandlers(bot) {
     return showResults(ctx, { refresh: false });
   });
 
+  bot.action(/^track:add:(.+)$/i, async (ctx) => {
+    if (!env.trackingFeatureEnabled) {
+      await ctx.answerCbQuery("Tracking disabled");
+      return;
+    }
+
+    const placeId = ctx.match[1];
+    const s = getCtx(ctx.from.id);
+    const place = s.lastResults.find((r) => r.placeId === placeId);
+    if (!place) {
+      await ctx.answerCbQuery("Result expired. Refresh first.");
+      return;
+    }
+
+    const res = await addTrackedRestaurant(ctx.from.id, place);
+    if (res.ok) {
+      await ctx.answerCbQuery("Restaurant tracked ✅");
+      trackTelegramEvent(ctx, "restaurant_tracked", { place_id: placeId, name: place.name });
+      return;
+    }
+
+    if (res.reason === "already_tracked") {
+      await ctx.answerCbQuery("Already tracked");
+      return;
+    }
+    if (res.reason === "limit_reached") {
+      await ctx.answerCbQuery("Tracking limit reached (20)");
+      return;
+    }
+    await ctx.answerCbQuery("Could not track this restaurant");
+  });
+
+  bot.action(/^track:remove:(.+)$/i, async (ctx) => {
+    if (!env.trackingFeatureEnabled) {
+      await ctx.answerCbQuery("Tracking disabled");
+      return;
+    }
+
+    const placeId = ctx.match[1];
+    const res = await removeTrackedRestaurant(ctx.from.id, placeId);
+    if (!res.ok) {
+      await ctx.answerCbQuery("Not found");
+      return;
+    }
+
+    const tracked = await listTrackedRestaurants(ctx.from.id);
+    await ctx.answerCbQuery("Removed");
+    trackTelegramEvent(ctx, "restaurant_untracked", { place_id: placeId });
+
+    if (!tracked.length) {
+      await ctx.editMessageText("You are not tracking any restaurants yet.");
+      return;
+    }
+
+    await ctx.editMessageText(formatTrackedMessage(tracked), {
+      parse_mode: "HTML",
+      ...trackedListKeyboard(tracked),
+    });
+  });
+
   // --- Hint users toward the wizard flow ---
   bot.on("text", async (ctx) => {
     const t = ctx.message.text.trim();
@@ -260,8 +343,8 @@ async function showResults(ctx, { refresh, editMessage = false }) {
     setCtx(userId, { page: 0 });
     const text = "No more results 😕\nTry refresh or lower filters.";
     return editMessage
-      ? ctx.editMessageText(text, { parse_mode: "HTML", ...resultsKeyboard() })
-      : ctx.reply(text, { parse_mode: "HTML", ...resultsKeyboard() });
+      ? ctx.editMessageText(text, { parse_mode: "HTML", ...resultsKeyboard([], 0, env.trackingFeatureEnabled) })
+      : ctx.reply(text, { parse_mode: "HTML", ...resultsKeyboard([], 0, env.trackingFeatureEnabled) });
   }
 
   const header =
@@ -284,8 +367,8 @@ async function showResults(ctx, { refresh, editMessage = false }) {
     area: s.location ? s.radiusLabel || "Near me (3 km)" : s.city,
   });
   return editMessage
-    ? ctx.editMessageText(text, { parse_mode: "HTML", ...resultsKeyboard() })
-    : ctx.reply(text, { parse_mode: "HTML", ...resultsKeyboard() });
+    ? ctx.editMessageText(text, { parse_mode: "HTML", ...resultsKeyboard(slice, start, env.trackingFeatureEnabled) })
+    : ctx.reply(text, { parse_mode: "HTML", ...resultsKeyboard(slice, start, env.trackingFeatureEnabled) });
 }
 
 function rankScore(p) {
@@ -302,4 +385,25 @@ function applyFiltersAndRank(places, { minReviews, minRating }) {
     .filter((p) => (typeof p.ratingsCount === "number" ? p.ratingsCount : 0) >= minC)
     .filter((p) => (typeof p.rating === "number" ? p.rating : 0) >= minR)
     .sort((a, b) => rankScore(b) - rankScore(a));
+}
+
+function formatTrackedMessage(places) {
+  const body = places
+    .map((r, i) => {
+      const title = `${i + 1}) ${escapeHtml(r.name)}${r.mapsUrl ? ` - <a href="${escapeHtml(r.mapsUrl)}">Open in Google Maps</a>` : ""}`;
+      const details = `⭐️ ${r.rating} (${r.ratingsCount})`;
+      const address = escapeHtml(r.address || "-");
+      return `${title}\n${details}\n${address}`;
+    })
+    .join("\n\n");
+
+  return `⭐ Tracked Restaurants (${places.length})\n\n${body}`.slice(0, 3800);
+}
+
+function escapeHtml(text) {
+  return String(text || "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;");
 }

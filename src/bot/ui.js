@@ -83,9 +83,33 @@ export function reviewsKeyboard() {
   ]);
 }
 
-export function resultsKeyboard() {
+export function resultsKeyboard(places = [], startIndex = 0, trackingEnabled = false) {
+  const trackRows = trackingEnabled
+    ? places
+        .map((p, idx) => {
+          if (!p?.placeId) return null;
+          return [Markup.button.callback(`⭐ Track #${startIndex + idx + 1}`, `track:add:${p.placeId}`)];
+        })
+        .filter(Boolean)
+    : [];
+
   return Markup.inlineKeyboard([
+    ...trackRows,
     [Markup.button.callback("🔄 Refresh", "results:refresh"), Markup.button.callback("🏠 Home", "nav:home")],
     [Markup.button.callback("⬅️ Prev", "results:prev"), Markup.button.callback("Next ➡️", "results:next")],
+  ]);
+}
+
+export function trackedListKeyboard(places = []) {
+  const removeRows = places
+    .map((p, idx) => {
+      if (!p?.placeId) return null;
+      return [Markup.button.callback(`❌ Remove #${idx + 1}`, `track:remove:${p.placeId}`)];
+    })
+    .filter(Boolean);
+
+  return Markup.inlineKeyboard([
+    ...removeRows,
+    [Markup.button.callback("🏠 Home", "nav:home")],
   ]);
 }
