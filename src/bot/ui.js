@@ -19,18 +19,39 @@ export function cuisineKeyboard() {
     ["🍕 Pizza", "cuisine:pizza"],
     ["🍝 Italian", "cuisine:italian restaurant"],
     ["🍔 Burger", "cuisine:burger"],
+    ["🌮 Mexican", "cuisine:mexican restaurant"],
+    ["🍛 Indian", "cuisine:indian restaurant"],
+    ["🥡 Chinese", "cuisine:chinese restaurant"],
+    ["🍣 Japanese", "cuisine:japanese restaurant"],
+    ["🍜 Thai", "cuisine:thai restaurant"],
+    ["🍲 Vietnamese", "cuisine:vietnamese restaurant"],
+    ["🥙 Lebanese", "cuisine:lebanese restaurant"],
+    ["🍗 Korean", "cuisine:korean restaurant"],
+    ["🥘 French", "cuisine:french restaurant"],
+    ["🍖 German", "cuisine:german restaurant"],
+    ["🍢 Persian", "cuisine:persian restaurant"],
+    ["🦞 Seafood", "cuisine:seafood restaurant"],
+    ["🔥 BBQ", "cuisine:barbecue restaurant"],
     ["🥙 Turkish", "cuisine:turkish restaurant"],
     ["🥗 Greek", "cuisine:greek restaurant"],
     ["🥘 Spanish", "cuisine:spanish restaurant"],
     ["⭐ Any", "cuisine:"],
   ];
 
+  const rows = [];
+  for (let i = 0; i < items.length; i += 2) {
+    const left = items[i];
+    const right = items[i + 1];
+    rows.push(
+      right
+        ? [Markup.button.callback(left[0], left[1]), Markup.button.callback(right[0], right[1])]
+        : [Markup.button.callback(left[0], left[1])]
+    );
+  }
+
   return Markup.inlineKeyboard(
     [
-      [Markup.button.callback(items[0][0], items[0][1]), Markup.button.callback(items[1][0], items[1][1])],
-      [Markup.button.callback(items[2][0], items[2][1]), Markup.button.callback(items[3][0], items[3][1])],
-      [Markup.button.callback(items[4][0], items[4][1]), Markup.button.callback(items[5][0], items[5][1])],
-      [Markup.button.callback(items[6][0], items[6][1])],
+      ...rows,
       [Markup.button.callback("⬅️ Back", "nav:home")],
     ]
   );
