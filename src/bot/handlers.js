@@ -218,7 +218,7 @@ export function registerBotHandlers(bot) {
   bot.action("results:refresh", async (ctx) => {
     await ctx.answerCbQuery();
     trackTelegramEvent(ctx, "results_refresh_clicked");
-    return showResults(ctx, { refresh: true });
+    return showResults(ctx, { refresh: true, editMessage: true });
   });
 
   bot.action("results:next", async (ctx) => {
@@ -226,7 +226,7 @@ export function registerBotHandlers(bot) {
     const s = getCtx(ctx.from.id);
     setCtx(ctx.from.id, { page: s.page + 1 });
     trackTelegramEvent(ctx, "results_next_clicked", { next_page: s.page + 1 });
-    return showResults(ctx, { refresh: false });
+    return showResults(ctx, { refresh: false, editMessage: true });
   });
 
   bot.action("results:prev", async (ctx) => {
@@ -234,7 +234,7 @@ export function registerBotHandlers(bot) {
     const s = getCtx(ctx.from.id);
     setCtx(ctx.from.id, { page: Math.max(0, s.page - 1) });
     trackTelegramEvent(ctx, "results_prev_clicked", { prev_page: Math.max(0, s.page - 1) });
-    return showResults(ctx, { refresh: false });
+    return showResults(ctx, { refresh: false, editMessage: true });
   });
 
   // --- Hint users toward the wizard flow ---
@@ -262,6 +262,10 @@ async function showResults(ctx, { refresh, editMessage = false }) {
   let results = s.lastResults;
 
   if (refresh || !results.length) {
+    if (editMessage) {
+      await safeEditLoadingState(ctx);
+    }
+
     const raw = await searchPlaces({
       textQuery,
       maxResultCount: 20,
@@ -324,4 +328,12 @@ function applyFiltersAndRank(places, { minReviews, minRating }) {
     .filter((p) => (typeof p.ratingsCount === "number" ? p.ratingsCount : 0) >= minC)
     .filter((p) => (typeof p.rating === "number" ? p.rating : 0) >= minR)
     .sort((a, b) => rankScore(b) - rankScore(a));
+}
+
+async function safeEditLoadingState(ctx) {
+  try {
+    await ctx.editMessageText("⏳ Searching restaurants...\nPlease wait.");
+  } catch {
+    // ignore edit failures and continue the search flow
+  }
 }
