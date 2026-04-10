@@ -2,7 +2,7 @@ import { Markup } from "telegraf";
 
 export function startKeyboard() {
   return Markup.inlineKeyboard([
-    [Markup.button.callback("📍 Share location", "home:nearme")],
+    [Markup.button.callback("📍 Share location", "home:nearme"), Markup.button.callback("🗼 Paris", "home:paris")],
   ]);
 }
 
