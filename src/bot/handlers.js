@@ -31,7 +31,7 @@ export function registerBotHandlers(bot) {
       pendingFilterMode: null,
     });
     await ctx.reply(
-      "👋 Welcome!\n\nLet's find restaurants step by step.\n1) Share your location or pick Paris.",
+      "👋 Welcome!\n\nLet's find restaurants step by step.\n1) Choose Berlin, Paris, or your location.",
       startKeyboard()
     );
     trackTelegramEvent(ctx, "bot_started");
@@ -62,13 +62,24 @@ export function registerBotHandlers(bot) {
       pendingFilterMode: null,
     });
     await ctx.editMessageText(
-      "Where do you want to explore?\nShare your location or pick Paris.",
+      "Where do you want to explore?\nChoose Berlin, Paris, or your location.",
       startKeyboard()
     );
     trackTelegramEvent(ctx, "nav_home");
   });
 
   // --- HOME actions (location only) ---
+  bot.action("home:berlin", async (ctx) => {
+    setCtx(ctx.from.id, {
+      location: null,
+      city: "Berlin",
+      step: "ASK_CUISINE",
+    });
+    await ctx.answerCbQuery("Berlin selected");
+    await ctx.editMessageText("🏙 Exploring restaurants in Berlin.\n\n3) What cuisine do you want?", cuisineKeyboard());
+    trackTelegramEvent(ctx, "city_quick_selected", { city: "Berlin" });
+  });
+
   bot.action("home:nearme", async (ctx) => {
     setCtx(ctx.from.id, { step: "ASK_LOCATION" });
     await ctx.answerCbQuery();
