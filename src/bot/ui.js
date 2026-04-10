@@ -32,6 +32,7 @@ export function cuisineKeyboard() {
     ["🍖 German", "cuisine:german restaurant"],
     ["🍢 Persian", "cuisine:persian restaurant"],
     ["🦞 Seafood", "cuisine:seafood restaurant"],
+    ["🥩 Steak", "cuisine:steakhouse"],
     ["🔥 BBQ", "cuisine:barbecue restaurant"],
     ["🥙 Turkish", "cuisine:turkish restaurant"],
     ["🥗 Greek", "cuisine:greek restaurant"],
